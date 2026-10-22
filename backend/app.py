@@ -125,7 +125,8 @@ def create_app(db_uri=None):
                          host=os.getenv("DB_HOST").strip(), port=int(os.getenv("DB_PORT", "3306")),
                          database=os.getenv("DB_NAME", "defaultdb"),
                          query={"ssl_ca": "ca.pem"}).render_as_string(hide_password=False)
-    url = url.replace("mysql://", "mysql+pymysql://", 1)
+    if url.startswith("mysql://"):
+        url = "mysql+pymysql://" + url[len("mysql://"):]
     from sqlalchemy.engine import make_url
     try:
         make_url(url)
