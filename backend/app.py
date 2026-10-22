@@ -116,14 +116,21 @@ def create_app(db_uri=None):
     url = (db_uri or os.getenv("DATABASE_URL") or "sqlite:///local.db").strip().strip("\"'")
     if "DATABASE_URL=" in url:
         url = url.split("DATABASE_URL=")[-1].strip().strip("\"'")
+    if os.getenv("DB_HOST") and not db_uri:
+        import hashlib
+        from sqlalchemy.engine import URL
+        pw = os.getenv("DB_PASSWORD", "").strip()
+        print("DB_PASSWORD len=%d sha=%s" % (len(pw), hashlib.sha256(pw.encode()).hexdigest()[:6]), flush=True)
+        url = URL.create("mysql+pymysql", username=os.getenv("DB_USER", "avnadmin"), password=pw,
+                         host=os.getenv("DB_HOST").strip(), port=int(os.getenv("DB_PORT", "3306")),
+                         database=os.getenv("DB_NAME", "defaultdb"),
+                         query={"ssl_ca": "ca.pem"}).render_as_string(hide_password=False)
+    url = url.replace("mysql://", "mysql+pymysql://", 1)
     from sqlalchemy.engine import make_url
     try:
-        make_url(url.replace("mysql://", "mysql+pymysql://", 1))
+        make_url(url)
     except Exception:
-        raise SystemExit("DATABASE_URL invalida | tamanho=%d | inicio=%r | fim=%r" % (
-            len(url), url[:14], url.rsplit("@", 1)[-1] if "@" in url else "(sem @)"))
-    if url.startswith("mysql://"):
-        url = url.replace("mysql://", "mysql+pymysql://", 1)
+        raise SystemExit("DATABASE_URL invalida | tamanho=%d | inicio=%r" % (len(url), url[:14]))
     app.config.update(SQLALCHEMY_DATABASE_URI=url,
                       SECRET_KEY=os.getenv("SECRET_KEY", "dev-key-change-me"),
                       SQLALCHEMY_ENGINE_OPTIONS={"pool_pre_ping": True})
