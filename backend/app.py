@@ -113,7 +113,15 @@ class Progress(db.Model):
 
 def create_app(db_uri=None):
     app = Flask(__name__)
-    url = db_uri or os.getenv("DATABASE_URL", "sqlite:///local.db")
+    url = (db_uri or os.getenv("DATABASE_URL") or "sqlite:///local.db").strip().strip("\"'")
+    if "DATABASE_URL=" in url:
+        url = url.split("DATABASE_URL=")[-1].strip().strip("\"'")
+    from sqlalchemy.engine import make_url
+    try:
+        make_url(url.replace("mysql://", "mysql+pymysql://", 1))
+    except Exception:
+        raise SystemExit("DATABASE_URL invalida | tamanho=%d | inicio=%r | fim=%r" % (
+            len(url), url[:14], url.rsplit("@", 1)[-1] if "@" in url else "(sem @)"))
     if url.startswith("mysql://"):
         url = url.replace("mysql://", "mysql+pymysql://", 1)
     app.config.update(SQLALCHEMY_DATABASE_URI=url,
